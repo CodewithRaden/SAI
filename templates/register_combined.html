@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Smart Absensi App</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h1 {
+            margin-bottom: 30px;
+            font-size: 24px;
+            color: #007bff;
+        }
+
+        .input-field {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .input-field label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .input-field input[type="text"],
+        .input-field input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        #preview {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            background-color: #000;
+        }
+
+        .button {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            border: none;
+            transition: background-color 0.3s ease;
+        }
+
+        .capture-button {
+            background-color: #28a745;
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        .capture-button:hover {
+            background-color: #218838;
+        }
+
+        .submit-button {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .submit-button:hover {
+            background-color: #0056b3;
+        }
+
+        #processing {
+            margin: 20px 0;
+            font-size: 18px;
+            color: #007bff;
+            display: none;
+        }
+
+        #message {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #ffc107;
+            color: #333;
+            border-radius: 5px;
+            display: none;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+        }
+        
+        #goto-home {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        #goto-home:hover {
+            background-color: #5a6268;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Register New User</h1>
+        <form id="register-form" method="POST" enctype="multipart/form-data" action="{{ url_for('register_combined') }}">
+            <div class="input-field">
+                <label for="name">Name:</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            <div class="input-field">
+                <label for="pin">PIN Number:</label>
+                <input type="password" id="pin" name="pin" minlength="6" maxlength="6" required>
+            </div>
+            <video id="preview" autoplay></video>
+            <button id="capture-button" class="button capture-button" type="button">Capture Images</button>
+            <button id="submit-button" class="button submit-button" type="submit">Register</button>
+            <button id="goto-home" type="button" onclick="window.location.href='/'">Back Home</button>
+        </form>
+        <div id="processing">Processing...</div>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        const video = document.getElementById('preview');
+        const captureButton = document.getElementById('capture-button');
+        const submitButton = document.getElementById('submit-button');
+        const registerForm = document.getElementById('register-form');
+        const processingDiv = document.getElementById('processing');
+        const messageDiv = document.getElementById('message');
+        const maxImages = 5;
+        let capturedImages = [];
+
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(err => {
+                console.error('Error accessing webcam: ', err);
+            });
+
+        captureButton.addEventListener('click', captureImage);
+
+        function captureImage() {
+            if (capturedImages.length >= maxImages) {
+                alert(`You have already captured ${maxImages} images.`);
+                return;
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            canvas.toBlob(blob => {
+                capturedImages.push(blob);
+                alert(`Image ${capturedImages.length} captured successfully.`);
+                if (capturedImages.length === maxImages) {
+                    captureButton.disabled = true;
+                }
+            }, 'image/jpeg');
+        }
+
+        registerForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            if (capturedImages.length < maxImages) {
+                alert(`Please capture ${maxImages} images before registering.`);
+                return;
+            }
+
+            const formData = new FormData(registerForm);
+            capturedImages.forEach((image, index) => {
+                formData.append('images', image, `image_${index + 1}.jpg`);
+            });
+
+            processingDiv.style.display = 'block';
+            captureButton.disabled = true;
+            submitButton.disabled = true;
+
+            fetch('/register_combined', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                processingDiv.style.display = 'none';
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    return response.json().then(err => { throw err; });
+                }
+            })
+            .then(data => {
+                messageDiv.style.display = 'block';
+                messageDiv.innerText = data.message;
+                registerForm.reset();
+                capturedImages = [];
+                captureButton.disabled = false;
+                submitButton.disabled = false;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                messageDiv.style.display = 'block';
+                messageDiv.innerText = error.error || 'An error occurred. Please try again.';
+                captureButton.disabled = false;
+                submitButton.disabled = false;
+            });
+        });
+    </script>
+</body>
+
+</html>

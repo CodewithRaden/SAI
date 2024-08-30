@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mark Attendance with PIN</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            text-align: center;
+            padding: 50px;
+        }
+        h1 {
+            color: #333;
+            font-size: 36px;
+            margin-bottom: 40px;
+        }
+        form {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            display: inline-block;
+            width: 400px;
+        }
+        label {
+            display: block;
+            margin-bottom: 15px;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        input[type="password"] {
+            padding: 15px;
+            width: calc(100% - 30px);
+            margin-bottom: 30px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 18px;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            color: #fff;
+            background-color: #007BFF;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .flash-message {
+            color: red;
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+        a {
+            text-decoration: none;
+            color: #007BFF;
+            font-size: 18px;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        #button-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        #goto-attendance, #goto-register, #goto-home {
+            padding: 15px 30px;
+            font-size: 18px;
+            cursor: pointer;
+            border: none;
+            border-radius: 6px;
+        }
+        #goto-attendance {
+            background-color: #28a745;
+            color: white;
+        }
+        #goto-attendance:hover {
+            background-color: #218838;
+        }
+        #goto-register {
+            background-color: #28a745;
+            color: white;
+        }
+        #goto-register:hover {
+            background-color: #218838;
+        }
+        #goto-home {
+            background-color: #6c757d;
+            color: white;
+        }
+        #goto-home:hover {
+            background-color: #5a6268;
+        }
+    </style>
+</head>
+<body>
+    <h1>Check In/Out with PIN</h1>
+
+    {% with messages = get_flashed_messages(with_categories=True) %}
+        {% if messages %}
+            <div class="flash-message">
+                <ul>
+                    {% for category, message in messages %}
+                        <li class="flash-{{ category }}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST">
+        <label for="pin">Enter your PIN Number:</label>
+        <input type="password" id="pin" name="pin" required pattern="\d{4}|\d{5}|\d{6}" title="Please enter a correct PIN">
+        <button type="submit" name="action" value="check_in">Check In</button>
+        <button type="submit" name="action" value="check_out">Check Out</button>
+    </form>
+    <br>
+    <br>
+    <button id="goto-home" onclick="window.location.href='/'">Back Home</button>
+</body>
+</html>

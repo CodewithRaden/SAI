@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Attendance</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            padding: 50px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #007BFF;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        a {
+            text-decoration: none;
+            color: #007BFF;
+            margin-top: 20px;
+            display: inline-block;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        img {
+            max-width: 100px;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Attendance Records</h1>
+
+    {% if records %}
+    <table>
+        <tr>
+            <th>Name</th>
+            <th>Date</th>
+            <th>Check-In</th>
+            <th>Check-Out</th>
+            <th>Check-In Image</th>
+            <th>Check-Out Image</th>
+            <th>Late</th>
+            <th>Status</th>
+        </tr>
+        {% for record in records %}
+        <tr>
+            <td>{{ record[0] }}</td>
+            <td>{{ record[1] }}</td>
+            <td>{{ record[2] }}</td>
+            <td>
+                {% if record[3] %}
+                    {{ record[3] }}
+                {% else %}
+                    Not Checked Out
+                {% endif %}
+            </td>
+            <td>
+                {% if record[4] %}
+                    <img src="{{ record[4] }}" alt="Check-In Image">
+                {% else %}
+                    No Image or Check-in by PIN
+                {% endif %}
+            </td>
+            <td>
+                {% if record[5] %}
+                    <img src="{{ record[5] }}" alt="Check-Out Image">
+                {% else %}
+                    No Image or Check-Out by PIN
+                {% endif %}
+            </td>            
+            <td>{{ record[6] }}</td>
+            <td>{{ record[7] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <p>No attendance records found.</p>
+    {% endif %}
+    <br>
+    <a href="{{ url_for('index') }}">Back to Home</a>
+</body>
+</html>

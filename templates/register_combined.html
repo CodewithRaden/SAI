@@ -127,8 +127,9 @@
         <h1>Register New User</h1>
         <form id="register-form" method="POST" enctype="multipart/form-data" action="{{ url_for('register_combined') }}">
             <div class="input-field">
-                <label for="name">Name:</label>
-                <input type="text" id="name" name="name" required>
+                <select id="name" name="name" class="browser-default" required>
+                    <option value="id" disabled selected>Select a name</option>
+                </select>
             </div>
             <div class="input-field">
                 <label for="pin">PIN Number:</label>
@@ -228,7 +229,22 @@
                 submitButton.disabled = false;
             });
         });
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/get_pg_names')
+                .then(response => response.json())
+                .then(names => {
+                    const nameDropdown = document.getElementById('name');
+                    names.forEach(name => {
+                        const option = document.createElement('option');
+                        option.value = name;
+                        option.textContent = name;
+                        nameDropdown.appendChild(option);
+                    });
+                })
+                .catch(error => console.error('Error fetching names:', error));
+        });
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
 </body>
 
 </html>

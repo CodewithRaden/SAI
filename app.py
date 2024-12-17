@@ -7,68 +7,33 @@ import face_recognition
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 from sklearn.neighbors import KDTree
-import sqlite3
 import requests
 import pandas as pd
 import numpy as np
 import psycopg2
 
 app = Flask(__name__)
-app.secret_key = 'matherfather'
+app.secret_key = "matherfather"
 
 
-import sqlite3
-
-
-def init_db():
-    conn = sqlite3.connect('attendance.db')
-    cursor = conn.cursor()
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS user (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            pin TEXT NOT NULL UNIQUE
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS attendance (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            nama TEXT NOT NULL,
-            tanggal DATE NOT NULL,
-            waktu_masuk TIME,
-            waktu_keluar TIME,
-            keterlambatan TEXT,
-            status TEXT,
-            checkin_image TEXT,
-            checkout_image TEXT,
-            FOREIGN KEY(user_id) REFERENCES user(id)
-        )
-    ''')
-    
-    conn.commit()
-    conn.close()   
-
-@app.route('/')
+@app.route("/")
 def index():
-    return render_template('index.html')
+    return render_template("index.html")
 
 
-@app.route('/attendance', methods=['GET', 'POST'])
+@app.route("/attendance", methods=["GET", "POST"])
 def attendance():
-    if request.method == 'POST':
-        pin = request.form.get('pin')
-        action = request.form.get('action')
+    if request.method == "POST":
+        pin = request.form.get("pin")
+        action = request.form.get("action")
 
         # Establish a connection to the PostgreSQL database
         conn = psycopg2.connect(
-            database="verceldb", 
-            user='default', 
-            password='lfQrZe6KxYi5', 
-            host='ep-billowing-darkness-a1nux2qh-pooler.ap-southeast-1.aws.neon.tech', 
-            port='5432'
+            database="verceldb",
+            user="default",
+            password="lfQrZe6KxYi5",
+            host="ep-billowing-darkness-a1nux2qh-pooler.ap-southeast-1.aws.neon.tech",
+            port="5432",
         )
         cursor = conn.cursor()
 
@@ -76,62 +41,66 @@ def attendance():
         print(f"Searching for PIN: {pin}")
 
         # Find the Pegawai associated with the provided PIN
-        cursor.execute('SELECT id, "namaPegawai" FROM public."Pegawai" WHERE pin = %s', (pin,))
+        cursor.execute(
+            'SELECT id, "namaPegawai" FROM public."Pegawai" WHERE pin = %s', (pin,)
+        )
         pegawai = cursor.fetchone()
 
         # Debug: Print what was fetched
         print(f"Fetched Pegawai: {pegawai}")
 
         if not pegawai:
-            flash('Invalid PIN. Please try again.', 'error')
+            flash("Invalid PIN. Please try again.", "error")
             conn.close()
-            return redirect(url_for('attendance'))
+            return redirect(url_for("attendance"))
 
-        pegawai_id = pegawai[0]  
-        name = pegawai[1]  
-    
-        today = datetime.now().strftime('%Y-%m-%d')
+        pegawai_id = pegawai[0]
+        name = pegawai[1]
+
+        today = datetime.now().strftime("%Y-%m-%d")
 
         # Check if there's an attendance record for today
-        cursor.execute('SELECT * FROM public."Absensi" WHERE "pegawaiId" = %s AND DATE("waktuMasuk") = %s', (pegawai_id, today))
+        cursor.execute(
+            'SELECT * FROM public."Absensi" WHERE "pegawaiId" = %s AND DATE("waktuMasuk") = %s',
+            (pegawai_id, today),
+        )
         attendance_record = cursor.fetchone()
 
         # Check-in Action
-        if action == 'check_in':
+        if action == "check_in":
             if attendance_record:
-                flash(f'{name} already checked in today.', 'error')
+                flash(f"{name} already checked in today.", "error")
             else:
                 conn.commit()
-                flash(f'Check-in successful for {name}.', 'success')
-                send_attendance_data_to_server(pegawai_id, 'check_in', today)
+                flash(f"Check-in successful for {name}.", "success")
+                send_attendance_data_to_server(pegawai_id, "check_in", today)
 
         # Check-out Action
-        elif action == 'check_out':
+        elif action == "check_out":
             if not attendance_record:
-                flash(f'{name} has not checked in today.', 'error')
-            elif attendance_record[2]:  # Assuming "waktuKeluar" is the third column in the result
-                flash(f'{name} has already checked out today.', 'error')
+                flash(f"{name} has not checked in today.", "error")
+            elif attendance_record[2]:
+                flash(f"{name} has already checked out today.", "error")
             else:
                 conn.commit()
-                flash(f'Check-out successful for {name}.', 'success')
-                send_attendance_data_to_server(pegawai_id, 'check_out', today)
-
+                flash(f"Check-out successful for {name}.", "success")
+                send_attendance_data_to_server(pegawai_id, "check_out", today)
 
         # Close the connection
         conn.close()
-        return redirect(url_for('attendance'))
+        return redirect(url_for("attendance"))
 
-    return render_template('pin_attendance.html')
+    return render_template("pin_attendance.html")
 
 
-@app.route('/capture', methods=['POST'])
+@app.route("/capture", methods=["POST"])
 def capture():
-    if 'image' not in request.files or 'type' not in request.form:
-        return jsonify({'error': 'No file uploaded or type not specified'}), 400
+    if "image" not in request.files or "type" not in request.form:
+        return jsonify({"error": "No file uploaded or type not specified"}), 400
 
-    file = request.files['image']
-    attendance_type = request.form['type']
-    image_path = 'captured_image.jpg'
+    file = request.files["image"]
+    attendance_type = request.form["type"]
+    image_path = "captured_image.jpg"
     file.save(image_path)
 
     image = face_recognition.load_image_file(image_path)
@@ -146,7 +115,9 @@ def capture():
 
     name = None
 
-    for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
+    for (top, right, bottom, left), face_encoding in zip(
+        face_locations, face_encodings
+    ):
         match_index = find_matches(face_encoding)
         name = known_face_names[match_index] if match_index != -1 else "Unknown"
         recognized_names.append(name)
@@ -155,69 +126,88 @@ def capture():
         text_bbox = draw.textbbox((left, bottom), name, font=font)
         text_width = text_bbox[2] - text_bbox[0]
         text_height = text_bbox[3] - text_bbox[1]
-        draw.rectangle(((left, bottom), (left + text_width, bottom + text_height)), fill=(0, 0, 255), outline=(0, 0, 255))
+        draw.rectangle(
+            ((left, bottom), (left + text_width, bottom + text_height)),
+            fill=(0, 0, 255),
+            outline=(0, 0, 255),
+        )
         draw.text((left, bottom), name, fill=(255, 255, 255, 255), font=font)
 
     if name and name != "Unknown":
         # Connect to PostgreSQL
         conn = psycopg2.connect(
-            database="verceldb", 
-            user='default', 
-            password='lfQrZe6KxYi5', 
-            host='ep-billowing-darkness-a1nux2qh-pooler.ap-southeast-1.aws.neon.tech', 
-            port='5432'
+            database="verceldb",
+            user="default",
+            password="lfQrZe6KxYi5",
+            host="ep-billowing-darkness-a1nux2qh-pooler.ap-southeast-1.aws.neon.tech",
+            port="5432",
         )
         cursor = conn.cursor()
 
         # Find Pegawai by name
-        cursor.execute('SELECT id FROM public."Pegawai" WHERE "namaPegawai" = %s', (name,))
+        cursor.execute(
+            'SELECT id FROM public."Pegawai" WHERE "namaPegawai" = %s', (name,)
+        )
         pegawai = cursor.fetchone()
 
         if pegawai:
             user_id = pegawai[0]
             now = datetime.now()
-            today = now.strftime('%Y-%m-%d')
-            current_time = now.strftime('%H:%M:%S')
+            today = now.strftime("%Y-%m-%d")
+            current_time = now.strftime("%H:%M:%S")
             saved_image_path = save_image(pil_image, name, attendance_type)
 
             # Check if there's an attendance record for today
-            cursor.execute('''
+            cursor.execute(
+                """
                 SELECT * FROM public."Absensi" 
                 WHERE "pegawaiId" = %s AND DATE("waktuMasuk") = %s
-            ''', (user_id, today))
+            """,
+                (user_id, today),
+            )
             record = cursor.fetchone()
 
-            if attendance_type == 'checkin':
+            if attendance_type == "checkin":
                 if record:
-                    message = f'{name} already checked in today.'
+                    message = f"{name} already checked in today."
                 else:
-                    message = f'{name} successfully checked in.'
-                    send_attendance_data_to_server(user_id, 'check_in', current_time)
+                    message = f"{name} successfully checked in."
+                    send_attendance_data_to_server(user_id, "check_in", current_time)
 
-            elif attendance_type == 'checkout':
+            elif attendance_type == "checkout":
                 if not record:
-                    message = f'{name} has not checked in today.'
-                elif record[2]:  # Assuming "waktuKeluar" is the third column in the result
-                    message = f'{name} already checked out today.'
+                    message = f"{name} has not checked in today."
+                elif record[
+                    2
+                ]:  # Assuming "waktuKeluar" is the third column in the result
+                    message = f"{name} already checked out today."
                 else:
-                    cursor.execute('''
+                    cursor.execute(
+                        """
                         UPDATE public."Absensi" 
                         SET "waktuKeluar" = %s 
                         WHERE "pegawaiId" = %s AND DATE("waktuMasuk") = %s
-                    ''', (current_time, user_id, today))
-                    message = f'{name} successfully checked out.'
-                    send_attendance_data_to_server(user_id, 'check_out', current_time)
+                    """,
+                        (current_time, user_id, today),
+                    )
+                    message = f"{name} successfully checked out."
+                    send_attendance_data_to_server(user_id, "check_out", current_time)
 
             conn.commit()
 
         conn.close()
 
     del draw
-    annotated_image_path = os.path.join('static', 'annotated_image.jpg')
+    annotated_image_path = os.path.join("static", "annotated_image.jpg")
     pil_image.save(annotated_image_path)
 
-    return jsonify({'message': message, 'names': recognized_names, 'image_path': annotated_image_path})
-
+    return jsonify(
+        {
+            "message": message,
+            "names": recognized_names,
+            "image_path": annotated_image_path,
+        }
+    )
 
 
 def resize_image(image, target_width=500):
@@ -226,19 +216,21 @@ def resize_image(image, target_width=500):
     new_dimensions = (target_width, int(height * ratio))
     return cv2.resize(image, new_dimensions, interpolation=cv2.INTER_AREA)
 
+
 def save_image(pil_image, name, attendance_type):
-    dir_path = f'static/captured/{name}/'
+    dir_path = f"static/captured/{name}/"
     os.makedirs(dir_path, exist_ok=True)
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f'{name}_{attendance_type}_{timestamp}.jpg'
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{name}_{attendance_type}_{timestamp}.jpg"
     filepath = os.path.join(dir_path, filename)
     pil_image.save(filepath)
-    return filepath  
+    return filepath
 
 
 def find_matches(encoding, threshold=0.5):
     distances, indices = face_tree.query([encoding], k=1)
     return indices[0][0] if distances[0][0] < threshold else -1
+
 
 def load_known_faces(known_faces_dir):
     global known_face_encodings, known_face_names, face_tree
@@ -249,7 +241,7 @@ def load_known_faces(known_faces_dir):
         person_path = os.path.join(known_faces_dir, person_dir)
         if os.path.isdir(person_path):
             for filename in os.listdir(person_path):
-                if filename.endswith('.jpg') or filename.endswith('.png'):
+                if filename.endswith(".jpg") or filename.endswith(".png"):
                     image_path = os.path.join(person_path, filename)
                     image = face_recognition.load_image_file(image_path)
                     encodings = face_recognition.face_encodings(image)
@@ -261,47 +253,28 @@ def load_known_faces(known_faces_dir):
     known_face_names = face_names
     face_tree = KDTree(np.array(known_face_encodings), leaf_size=2)
 
-@app.route('/face_attedance')
+
+@app.route("/face_attedance")
 def face_index():
-    return render_template('face_attendance.html')
+    return render_template("face_attendance.html")
 
 
-@app.route('/view_combined')
-def view_combined_attendance():
-    conn = sqlite3.connect('attendance.db')
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT 
-            nama, 
-            tanggal, 
-            waktu_masuk, 
-            waktu_keluar, 
-            checkin_image, 
-            checkout_image, 
-            keterlambatan, 
-            status
-        FROM attendance
-    ''')
-    records = cursor.fetchall()
-    conn.close()
-    return render_template('view_combined.html', records=records)
-
-@app.route('/register_combined', methods=['POST'])
+@app.route("/register_combined", methods=["POST"])
 def register_combined():
-    name = request.form['name']
-    pin = request.form['pin']
-    files = request.files.getlist('images')
+    name = request.form["name"]
+    pin = request.form["pin"]
+    files = request.files.getlist("images")
 
     if not name or not pin or not files:
-        return jsonify({'error': 'Name, PIN, and photos are required'}), 400
+        return jsonify({"error": "Name, PIN, and photos are required"}), 400
 
     # Connect to the PostgreSQL database
     conn = psycopg2.connect(
-        database="verceldb", 
-        user='default', 
-        password='lfQrZe6KxYi5', 
-        host='ep-billowing-darkness-a1nux2qh-pooler.ap-southeast-1.aws.neon.tech', 
-        port='5432'
+        database="verceldb",
+        user="default",
+        password="lfQrZe6KxYi5",
+        host="ep-billowing-darkness-a1nux2qh-pooler.ap-southeast-1.aws.neon.tech",
+        port="5432",
     )
     cursor = conn.cursor()
 
@@ -311,24 +284,34 @@ def register_combined():
 
     if existing_user:
         conn.close()
-        return jsonify({'error': 'PIN already in use. Please choose another PIN.'}), 400
+        return jsonify({"error": "PIN already in use. Please choose another PIN."}), 400
 
     # Update the Pegawai record with the provided PIN
-    cursor.execute('''
+    cursor.execute(
+        """
         UPDATE public."Pegawai" 
         SET pin = %s 
         WHERE "namaPegawai" = %s
         RETURNING id
-    ''', (pin, name))
+    """,
+        (pin, name),
+    )
     conn.commit()
 
     updated_pegawai_id = cursor.fetchone()
 
     if not updated_pegawai_id:
         conn.close()
-        return jsonify({'error': 'No Pegawai found with that name. Please check the name and try again.'}), 400
+        return (
+            jsonify(
+                {
+                    "error": "No Pegawai found with that name. Please check the name and try again."
+                }
+            ),
+            400,
+        )
 
-    person_dir = os.path.join('faces', name)
+    person_dir = os.path.join("faces", name)
     if not os.path.exists(person_dir):
         os.makedirs(person_dir)
 
@@ -336,49 +319,51 @@ def register_combined():
         filename = file.filename
         file.save(os.path.join(person_dir, filename))
 
-    load_known_faces('faces')
+    load_known_faces("faces")
     conn.close()
 
-    return jsonify({'message': f'{name} has been registered successfully with PIN {pin}.'}), 200
+    return (
+        jsonify(
+            {"message": f"{name} has been registered successfully with PIN {pin}."}
+        ),
+        200,
+    )
 
 
-@app.route('/register_combined_view')
+@app.route("/register_combined_view")
 def register_combined_view():
-    return render_template('register_combined.html')
+    return render_template("register_combined.html")
 
 
 # Add New api for sai?
 
+
 def send_attendance_data_to_server(user_id, action, time):
     url = f"http://sai-web-alpha.vercel.app/api/addAbsensi/{user_id}"
-    headers = {
-        "x-vercel-protection-bypass": "fx7j8AGuf6OHN4FlXqWJjcrLhEYxIArj"
-    }
-    
-    data = {
-        "user_id": user_id,
-        "action": action,
-        "time": time
-    }
-    
+    headers = {"x-vercel-protection-bypass": "fx7j8AGuf6OHN4FlXqWJjcrLhEYxIArj"}
+
+    data = {"user_id": user_id, "action": action, "time": time}
+
     response = requests.post(url, headers=headers, json=data)
-    
+
     if response.status_code == 200:
         print(f"Successfully sent {action} data to server for user_id {user_id}.")
     else:
-        print(f"Failed to send data to server. Status Code: {response.status_code}. Response: {response.text}")
-        
+        print(
+            f"Failed to send data to server. Status Code: {response.status_code}. Response: {response.text}"
+        )
 
-@app.route('/get_pg_names', methods=['GET'])
+
+@app.route("/get_pg_names", methods=["GET"])
 def get_pg_names():
     try:
         # Establish a connection to the PostgreSQL database
         conn = psycopg2.connect(
-            database="verceldb", 
-            user='default', 
-            password='lfQrZe6KxYi5', 
-            host='ep-billowing-darkness-a1nux2qh-pooler.ap-southeast-1.aws.neon.tech', 
-            port='5432'
+            database="verceldb",
+            user="default",
+            password="lfQrZe6KxYi5",
+            host="ep-billowing-darkness-a1nux2qh-pooler.ap-southeast-1.aws.neon.tech",
+            port="5432",
         )
         cursor = conn.cursor()
 
@@ -394,10 +379,9 @@ def get_pg_names():
 
     except Exception as e:
         # Handle exceptions, such as database connection errors
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-if __name__ == '__main__':
-    init_db()
-    load_known_faces('faces')
+if __name__ == "__main__":
+    load_known_faces("faces")
     app.run(debug=True)
